@@ -25,6 +25,7 @@ public class ShizukuSettings {
     public static final String NIGHT_MODE = "night_mode";
     public static final String LANGUAGE = "language";
     public static final String KEEP_START_ON_BOOT = "start_on_boot";
+    public static final String ALLOW_ALL_APPS = "allow_all_apps";
 
     private static SharedPreferences sPreferences;
 
@@ -82,6 +83,18 @@ public class ShizukuSettings {
 
     public static void setLastLaunchMode(@LaunchMethod int method) {
         getPreferences().edit().putInt("mode", method).apply();
+    }
+
+    /**
+     * When true, every app that asks for access is approved automatically,
+     * without showing the confirmation dialog.
+     */
+    public static boolean isAllowAllApps() {
+        return getPreferences().getBoolean(ALLOW_ALL_APPS, false);
+    }
+
+    public static void setAllowAllApps(boolean allow) {
+        getPreferences().edit().putBoolean(ALLOW_ALL_APPS, allow).apply();
     }
 
     @AppCompatDelegate.NightMode

@@ -73,6 +73,13 @@
     <string name="home_app_management_view_authorized_apps"><![CDATA[Tap to manage authorized apps]]></string>
     <string name="home_app_management_empty">Apps that has requested or declared Shizuku will show here.</string>
 
+    <!-- Application management - Allow all apps -->
+    <string name="allow_all_apps">Allow all apps</string>
+    <string name="allow_all_apps_summary">Automatically authorize every app that asks</string>
+    <string name="allow_all_apps_dialog_title">Allow all apps?</string>
+    <string name="allow_all_apps_dialog_message">Every app that uses Mitsuku, including apps you install later, will be given access without asking you. Any of them could then run commands with shell-level permissions, so only turn this on if you trust every app on this device.</string>
+    <string name="allow_all_apps_dialog_confirm">Allow all</string>
+
     <!-- Home - Learn more -->
     <string name="home_learn_more_title">Learn Shizuku</string>
     <string name="home_learn_more_description">Learn how to develop with Shizuku</string>

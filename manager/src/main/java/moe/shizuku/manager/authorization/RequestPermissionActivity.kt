@@ -10,6 +10,7 @@ import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import moe.shizuku.manager.Helps
 import moe.shizuku.manager.R
+import moe.shizuku.manager.ShizukuSettings
 import moe.shizuku.manager.app.AppActivity
 import moe.shizuku.manager.databinding.ConfirmationDialogBinding
 import moe.shizuku.manager.ktx.toHtml
@@ -102,6 +103,13 @@ class RequestPermissionActivity : AppActivity() {
         }
         if (!checkSelfPermission()) {
             setResult(uid, pid, requestCode, allowed = false, onetime = true)
+            return
+        }
+
+        // "Allow all apps" is on: approve without showing the confirmation dialog.
+        if (ShizukuSettings.isAllowAllApps()) {
+            setResult(uid, pid, requestCode, allowed = true, onetime = false)
+            finish()
             return
         }
 

@@ -13,6 +13,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import moe.shizuku.manager.authorization.AuthorizationManager
+import moe.shizuku.manager.utils.Logger.LOGGER
 import rikka.lifecycle.Resource
 import rikka.lifecycle.activityViewModels
 import rikka.lifecycle.viewModels
@@ -30,6 +31,28 @@ class AppsViewModel(context: Context) : ViewModel() {
 
     private val _grantedCount = MutableLiveData<Resource<Int>>()
     val grantedCount = _grantedCount as LiveData<Resource<Int>>
+
+    /** Allows every app in the list that is not allowed yet, then refreshes the list. */
+    fun grantAll() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                for (pi in AuthorizationManager.getPackages()) {
+                    val uid = pi.applicationInfo?.uid ?: continue
+                    try {
+                        if (!AuthorizationManager.granted(pi.packageName, uid)) {
+                            AuthorizationManager.grant(pi.packageName, uid)
+                        }
+                    } catch (e: Throwable) {
+                        // One app failing must not stop the others.
+                        LOGGER.w(e, "grantAll: ${pi.packageName}")
+                    }
+                }
+            } catch (e: Throwable) {
+                LOGGER.w(e, "grantAll")
+            }
+            load()
+        }
+    }
 
     fun load(onlyCount: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) {

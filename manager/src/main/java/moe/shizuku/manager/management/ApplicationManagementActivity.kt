@@ -5,8 +5,10 @@ import android.util.TypedValue
 import android.view.MenuItem
 import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView.AdapterDataObserver
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import moe.shizuku.manager.Helps
 import moe.shizuku.manager.R
+import moe.shizuku.manager.ShizukuSettings
 import moe.shizuku.manager.app.AppBarActivity
 import moe.shizuku.manager.databinding.AppsActivityBinding
 import moe.shizuku.manager.utils.CustomTabsHelper
@@ -40,6 +42,8 @@ class ApplicationManagementActivity : AppBarActivity() {
 
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
+        setupAllowAll(binding)
+
         viewModel.packages.observe(this) {
             when (it.status) {
                 Status.SUCCESS -> {
@@ -72,6 +76,29 @@ class ApplicationManagementActivity : AppBarActivity() {
         })
 
         Shizuku.addBinderDeadListener(binderDeadListener)
+    }
+
+    private fun setupAllowAll(binding: AppsActivityBinding) {
+        binding.allowAllSwitch.isChecked = ShizukuSettings.isAllowAllApps()
+        binding.allowAllCard.setOnClickListener {
+            if (ShizukuSettings.isAllowAllApps()) {
+                // Turning it off only stops approving new requests automatically.
+                // Apps that were already allowed stay allowed until you switch them off.
+                ShizukuSettings.setAllowAllApps(false)
+                binding.allowAllSwitch.isChecked = false
+            } else {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.allow_all_apps_dialog_title)
+                    .setMessage(R.string.allow_all_apps_dialog_message)
+                    .setPositiveButton(R.string.allow_all_apps_dialog_confirm) { _, _ ->
+                        ShizukuSettings.setAllowAllApps(true)
+                        binding.allowAllSwitch.isChecked = true
+                        viewModel.grantAll()
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            }
+        }
     }
 
     override fun onDestroy() {
