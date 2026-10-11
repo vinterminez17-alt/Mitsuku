@@ -26,6 +26,11 @@ public class ShizukuSettings {
     public static final String LANGUAGE = "language";
     public static final String KEEP_START_ON_BOOT = "start_on_boot";
     public static final String ALLOW_ALL_APPS = "allow_all_apps";
+    public static final String TCP_MODE = "tcp_mode";
+    public static final String TCP_MODE_WARNING_SHOWN = "tcp_mode_warning_shown";
+
+    /** The fixed local port used by TCP mode (same as "adb tcpip 5555"). */
+    public static final int TCP_PORT = 5555;
 
     private static SharedPreferences sPreferences;
 
@@ -95,6 +100,23 @@ public class ShizukuSettings {
 
     public static void setAllowAllApps(boolean allow) {
         getPreferences().edit().putBoolean(ALLOW_ALL_APPS, allow).apply();
+    }
+
+    /**
+     * When true, after Mitsuku is started over Wi-Fi (wireless debugging) it also asks
+     * Android's debug service to listen on {@link #TCP_PORT}, so it can be restarted later
+     * through 127.0.0.1 without Wi-Fi. Android forgets that port on every reboot.
+     */
+    public static boolean isTcpMode() {
+        return getPreferences().getBoolean(TCP_MODE, false);
+    }
+
+    public static boolean isTcpModeWarningShown() {
+        return getPreferences().getBoolean(TCP_MODE_WARNING_SHOWN, false);
+    }
+
+    public static void setTcpModeWarningShown() {
+        getPreferences().edit().putBoolean(TCP_MODE_WARNING_SHOWN, true).apply();
     }
 
     @AppCompatDelegate.NightMode

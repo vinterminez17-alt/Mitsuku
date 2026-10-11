@@ -18,8 +18,10 @@ import moe.shizuku.manager.adb.AdbClient
 import moe.shizuku.manager.adb.AdbKey
 import moe.shizuku.manager.adb.AdbKeyException
 import moe.shizuku.manager.adb.PreferenceAdbKeyStore
+import moe.shizuku.manager.adb.TcpMode
 import moe.shizuku.manager.app.AppBarActivity
 import moe.shizuku.manager.databinding.StarterActivityBinding
+import moe.shizuku.manager.utils.EnvironmentUtils
 import rikka.lifecycle.Resource
 import rikka.lifecycle.Status
 import rikka.lifecycle.viewModels
@@ -178,17 +180,50 @@ private class ViewModel(context: Context, root: Boolean, host: String?, port: In
                 return@launch
             }
 
-            AdbClient(host, port, key).runCatching {
-                connect()
-                shellCommand(Starter.internalCommand) {
-                    sb.append(String(it))
-                    postResult()
+            // TCP mode: while on Wi-Fi, ask adbd to also listen on a local TCP port and carry on
+            // through that port, so later restarts do not need Wi-Fi. When the TCP port is already
+            // open (a restart without Wi-Fi), this step is skipped.
+            var targetHost = host
+            var targetPort = port
+            var switchedToTcp = false
+            if (ShizukuSettings.isTcpMode() && port != EnvironmentUtils.getAdbTcpPort()) {
+                sb.append("Turning on TCP mode (port ${ShizukuSettings.TCP_PORT})...").append('\n')
+                postResult()
+                try {
+                    TcpMode.enable(host, port, key)
+                    targetHost = TcpMode.HOST
+                    targetPort = ShizukuSettings.TCP_PORT
+                    switchedToTcp = true
+                } catch (e: Throwable) {
+                    e.printStackTrace()
+
+                    sb.append('\n').append(Log.getStackTraceString(e))
+                    postResult(e)
+                    return@launch
                 }
-                close()
+            }
+
+            runCatching {
+                val client = if (switchedToTcp) {
+                    TcpMode.connectWithRetry(targetHost, targetPort, key)
+                } else {
+                    AdbClient(targetHost, targetPort, key).apply { connect() }
+                }
+                try {
+                    client.shellCommand(Starter.internalCommand) {
+                        sb.append(String(it))
+                        postResult()
+                    }
+                } finally {
+                    client.close()
+                }
             }.onFailure {
                 it.printStackTrace()
 
                 sb.append('\n').append(Log.getStackTraceString(it))
+                if (switchedToTcp) {
+                    sb.append('\n').append("TCP mode could not connect on port $targetPort. You can turn TCP mode off in Settings and start again.")
+                }
                 postResult(it)
             }
         }

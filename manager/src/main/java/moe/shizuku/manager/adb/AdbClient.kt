@@ -81,8 +81,29 @@ class AdbClient(private val host: String, private val port: Int, private val key
     }
 
     fun shellCommand(command: String, listener: ((ByteArray) -> Unit)?) {
+        openService("shell:$command", listener)
+    }
+
+    /**
+     * Asks adbd to restart and also listen on the given TCP port (same as "adb tcpip <port>").
+     * adbd drops the connection while it restarts, so callers should expect an EOFException
+     * or SocketException here and treat it as success.
+     */
+    fun tcpip(port: Int) {
+        openService("tcpip:$port", null)
+    }
+
+    /**
+     * Asks adbd to restart in USB mode and stop listening on the TCP port
+     * (same as "adb usb"). Like [tcpip], the connection is dropped while adbd restarts.
+     */
+    fun usb() {
+        openService("usb:", null)
+    }
+
+    private fun openService(destination: String, listener: ((ByteArray) -> Unit)?) {
         val localId = 1
-        write(A_OPEN, localId, 0, "shell:$command")
+        write(A_OPEN, localId, 0, destination)
 
         var message = read()
         when (message.command) {

@@ -4,17 +4,27 @@ import android.content.ComponentName
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.TextUtils
+import android.util.Log
 import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.preference.*
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import moe.shizuku.manager.R
 import moe.shizuku.manager.ShizukuSettings
 import moe.shizuku.manager.ShizukuSettings.KEEP_START_ON_BOOT
+import moe.shizuku.manager.ShizukuSettings.TCP_MODE as KEY_TCP_MODE
+import moe.shizuku.manager.adb.TcpMode
 import moe.shizuku.manager.app.ThemeHelper
 import moe.shizuku.manager.app.ThemeHelper.KEY_BLACK_NIGHT_THEME
 import moe.shizuku.manager.app.ThemeHelper.KEY_USE_SYSTEM_COLOR
@@ -39,6 +49,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private lateinit var nightModePreference: IntegerSimpleMenuPreference
     private lateinit var blackNightThemePreference: TwoStatePreference
     private lateinit var startOnBootPreference: TwoStatePreference
+    private lateinit var tcpModePreference: TwoStatePreference
     private lateinit var startupPreference: PreferenceCategory
     private lateinit var translationPreference: Preference
     private lateinit var translationContributorsPreference: Preference
@@ -62,6 +73,23 @@ class SettingsFragment : PreferenceFragmentCompat() {
         useSystemColorPreference = findPreference(KEY_USE_SYSTEM_COLOR)!!
 
         val componentName = ComponentName(context.packageName, BootCompleteReceiver::class.java.name)
+
+        tcpModePreference = findPreference(KEY_TCP_MODE)!!
+        tcpModePreference.onPreferenceChangeListener =
+            Preference.OnPreferenceChangeListener { _: Preference?, newValue: Any ->
+                if (newValue == true) {
+                    if (ShizukuSettings.isTcpModeWarningShown()) {
+                        true
+                    } else {
+                        // Ask once; the switch is only turned on if the user agrees.
+                        showTcpModeWarning(context)
+                        false
+                    }
+                } else {
+                    closeTcpPort(context)
+                    true
+                }
+            }
 
         startOnBootPreference.isChecked = context.packageManager.isComponentEnabled(componentName)
         startOnBootPreference.onPreferenceChangeListener =
@@ -137,6 +165,35 @@ class SettingsFragment : PreferenceFragmentCompat() {
             translationContributorsPreference.summary = contributors
         } else {
             translationContributorsPreference.isVisible = false
+        }
+    }
+
+    private fun showTcpModeWarning(context: Context) {
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.tcp_mode_warning_title)
+            .setMessage(R.string.tcp_mode_warning_message)
+            .setPositiveButton(R.string.tcp_mode_warning_enable) { _, _ ->
+                ShizukuSettings.setTcpModeWarningShown()
+                tcpModePreference.isChecked = true
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    /** Turning TCP mode off closes the TCP port again (if it is open right now). */
+    private fun closeTcpPort(context: Context) {
+        if (!TcpMode.isPortOpen()) return
+
+        val appContext = context.applicationContext
+        GlobalScope.launch(Dispatchers.IO) {
+            try {
+                TcpMode.disable(TcpMode.createKey())
+            } catch (e: Throwable) {
+                Log.w("SettingsFragment", "Failed to close the TCP port", e)
+                Handler(Looper.getMainLooper()).post {
+                    Toast.makeText(appContext, R.string.tcp_mode_close_failed, Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 

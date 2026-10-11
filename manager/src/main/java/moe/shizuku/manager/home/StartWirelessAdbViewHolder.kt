@@ -11,9 +11,12 @@ import android.view.ViewGroup
 import androidx.annotation.RequiresApi
 import androidx.core.view.isVisible
 import androidx.fragment.app.FragmentActivity
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import moe.shizuku.manager.Helps
 import moe.shizuku.manager.R
+import moe.shizuku.manager.ShizukuSettings
 import moe.shizuku.manager.adb.AdbPairingTutorialActivity
+import moe.shizuku.manager.adb.TcpMode
 import moe.shizuku.manager.databinding.HomeItemContainerBinding
 import moe.shizuku.manager.databinding.HomeStartWirelessAdbBinding
 import moe.shizuku.manager.ktx.toHtml
@@ -66,7 +69,32 @@ class StartWirelessAdbViewHolder(binding: HomeStartWirelessAdbBinding, root: Vie
 
     private fun onAdbClicked(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            AdbDialogFragment().show(context.asActivity<FragmentActivity>().supportFragmentManager)
+            val activity = context.asActivity<FragmentActivity>()
+
+            if (ShizukuSettings.isTcpMode()) {
+                val tcpPort = EnvironmentUtils.getAdbTcpPort()
+                if (tcpPort > 0) {
+                    // TCP mode is active: restart through the local TCP port, no Wi-Fi needed.
+                    val intent = Intent(context, StarterActivity::class.java).apply {
+                        putExtra(StarterActivity.EXTRA_IS_ROOT, false)
+                        putExtra(StarterActivity.EXTRA_HOST, TcpMode.HOST)
+                        putExtra(StarterActivity.EXTRA_PORT, tcpPort)
+                    }
+                    context.startActivity(intent)
+                } else {
+                    // TCP mode is on, but Android forgot the TCP port (e.g. after a reboot).
+                    MaterialAlertDialogBuilder(activity)
+                        .setMessage(R.string.tcp_mode_wifi_needed_message)
+                        .setPositiveButton(R.string.tcp_mode_wifi_needed_continue) { _, _ ->
+                            AdbDialogFragment().show(activity.supportFragmentManager)
+                        }
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show()
+                }
+                return
+            }
+
+            AdbDialogFragment().show(activity.supportFragmentManager)
             return
         }
 

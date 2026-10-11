@@ -20,6 +20,7 @@ import moe.shizuku.manager.adb.AdbClient
 import moe.shizuku.manager.adb.AdbKey
 import moe.shizuku.manager.adb.AdbMdns
 import moe.shizuku.manager.adb.PreferenceAdbKeyStore
+import moe.shizuku.manager.adb.TcpMode
 import moe.shizuku.manager.starter.Starter
 import moe.shizuku.manager.utils.UserHandleCompat
 import rikka.shizuku.Shizuku
@@ -71,17 +72,26 @@ class BootCompleteReceiver : BroadcastReceiver() {
                 try {
                     val keystore = PreferenceAdbKeyStore(ShizukuSettings.getPreferences())
                     val key = AdbKey(keystore, "shizuku")
-                    val client = AdbClient("127.0.0.1", port, key)
-                    client.connect()
-                    client.shellCommand(Starter.internalCommand, null)
-                    client.close()
+                    val client = if (ShizukuSettings.isTcpMode()) {
+                        // TCP mode: open the local TCP port first, so later restarts do not need Wi-Fi.
+                        TcpMode.enable("127.0.0.1", port, key)
+                        TcpMode.connectWithRetry(TcpMode.HOST, ShizukuSettings.TCP_PORT, key)
+                    } else {
+                        AdbClient("127.0.0.1", port, key).apply { connect() }
+                    }
+                    try {
+                        client.shellCommand(Starter.internalCommand, null)
+                    } finally {
+                        client.close()
+                    }
                 } catch (_: Exception) {
                 }
                 latch.countDown()
             }
             if (Settings.Global.getInt(cr, "adb_wifi_enabled", 0) == 1) {
                 adbMdns.start()
-                latch.await(3, TimeUnit.SECONDS)
+                // TCP mode needs a few extra seconds while adbd restarts.
+                latch.await(if (ShizukuSettings.isTcpMode()) 15L else 3L, TimeUnit.SECONDS)
                 adbMdns.stop()
             }
             pending.finish()
