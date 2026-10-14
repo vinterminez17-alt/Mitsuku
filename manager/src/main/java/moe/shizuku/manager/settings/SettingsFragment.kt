@@ -75,6 +75,10 @@ class SettingsFragment : PreferenceFragmentCompat() {
         val componentName = ComponentName(context.packageName, BootCompleteReceiver::class.java.name)
 
         tcpModePreference = findPreference(KEY_TCP_MODE)!!
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            // TCP mode builds on starting over Wi-Fi (wireless debugging), which needs Android 11 or above.
+            tcpModePreference.isVisible = false
+        }
         tcpModePreference.onPreferenceChangeListener =
             Preference.OnPreferenceChangeListener { _: Preference?, newValue: Any ->
                 if (newValue == true) {

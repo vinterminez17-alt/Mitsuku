@@ -43,7 +43,9 @@ class AdbDialogFragment : DialogFragment() {
             setNegativeButton(android.R.string.cancel, null)
             setPositiveButton(R.string.development_settings, null)
 
-            if (port != -1) {
+            // "0" means adbd was switched back to USB mode (for example when TCP mode is turned off),
+            // so only offer the button for a real port.
+            if (port > 0) {
                 setNeutralButton("$port", null)
             }
         }
